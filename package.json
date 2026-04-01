@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "@fastify/static": "^9.0.0"
   }
 }
