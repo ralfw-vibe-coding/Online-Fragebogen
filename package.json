@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n server,web -c blue,green \"npm run dev --workspace @fragebogen/server\" \"npm run dev --workspace @fragebogen/web\"",
+    "dev": "concurrently --kill-others --kill-others-on-fail -n server,web -c blue,green \"npm run dev --workspace @fragebogen/server\" \"npm run dev --workspace @fragebogen/web\"",
     "dev:web": "npm run dev --workspace @fragebogen/web",
     "dev:server": "npm run dev --workspace @fragebogen/server",
     "build": "npm run build --workspace @fragebogen/shared && npm run build --workspace @fragebogen/server && npm run build --workspace @fragebogen/web && node scripts/write-dist-package-types.mjs"
