@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   type SurveyAnswers,
   type SurveyDefinition,
+  getSurveyQuestions,
   sampleSurveyDefinition,
   surveyDefinitionSchema
 } from "@fragebogen/shared";
 import { SurveyRenderer } from "./components/SurveyRenderer";
 import { api } from "./lib/api";
+import schemaDocumentation from "../../../docs/formular-schema.md?raw";
 
 type SurveyListItem = {
   id: string;
@@ -20,6 +22,7 @@ type SurveyListItem = {
 
 const RECIPIENT_EMAIL_STORAGE_KEY = "fragebogen.recipientEmail";
 type EditorTab = "json" | "prompt";
+type NoticeTone = "success" | "error";
 
 function createInitialEditorState() {
   return {
@@ -59,7 +62,7 @@ function SubmissionSummary({
 }) {
   return (
     <section className="summary-list">
-      {definition.questions.map((question) => (
+      {getSurveyQuestions(definition).map((question) => (
         <article className="summary-item" key={question.id}>
           <h3>{question.label}</h3>
           <p>{formatAnswerValue(answers[question.id])}</p>
@@ -70,7 +73,7 @@ function SubmissionSummary({
 }
 
 function createInitialAnswers(definition: SurveyDefinition): SurveyAnswers {
-  return definition.questions.reduce<SurveyAnswers>((acc, question) => {
+  return getSurveyQuestions(definition).reduce<SurveyAnswers>((acc, question) => {
     acc[question.id] = question.type === "multiChoice" ? [] : "";
     return acc;
   }, {});
@@ -231,6 +234,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<NoticeTone>("success");
   const [previewAnswers, setPreviewAnswers] = useState<SurveyAnswers>(
     createInitialAnswers(sampleSurveyDefinition)
   );
@@ -316,6 +320,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setEditorTab("json");
     setPromptText("");
     setMessage("");
+    setMessageTone("success");
   }
 
   function loadSurveyForEditing(survey: SurveyListItem) {
@@ -327,6 +332,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setSlugEditedManually(survey.slug !== slugifyTitle(survey.title));
     setEditorTab("json");
     setPromptText("");
+    setMessageTone("success");
     setMessage(`Bearbeitung geladen: ${survey.title}`);
   }
 
@@ -340,6 +346,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
       resetEditor();
     }
 
+    setMessageTone("success");
     setMessage(`Gelöscht: ${survey.title}`);
   }
 
@@ -355,7 +362,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
       <header className="topbar">
         <div>
           <span className="eyebrow">Online Fragebögen</span>
-          <h1>Fragebögen verwalten</h1>
+          <h1>QuickForms</h1>
         </div>
 
         <button
@@ -418,7 +425,19 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
           </label>
 
           <label className="field-label">
-            Fragebogen-Definition
+            <span className="field-label-row">
+              <span>Fragebogen-Definition</span>
+              <a
+                className="icon-link"
+                href="/schema"
+                target="_blank"
+                rel="noreferrer"
+                title="Definition des JSON-Schemas für Fragebögen"
+                aria-label="Definition des JSON-Schemas für Fragebögen in neuem Tab öffnen"
+              >
+                <OpenIcon />
+              </a>
+            </span>
             <div className="tab-chip-row">
               <button
                 type="button"
@@ -457,14 +476,17 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                   onClick={async () => {
                     setGenerating(true);
                     setMessage("");
+                    setMessageTone("success");
 
                     try {
                       const result = await api.generateSurveyDefinition(promptText);
                       setDefinitionText(JSON.stringify(result.definition, null, 2));
                       setTitle(result.definition.title);
                       setEditorTab("json");
+                      setMessageTone("success");
                       setMessage("Formulardefinition aus Prompt erzeugt.");
                     } catch (caughtError) {
+                      setMessageTone("error");
                       setMessage(
                         caughtError instanceof Error
                           ? caughtError.message
@@ -475,14 +497,16 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                     }
                   }}
                 >
-                  {generating ? "Erzeuge..." : "Prompt ausführen"}
+                  {generating ? "Die KI generiert..." : "Fragebogen gestalten"}
                 </button>
               </div>
             )}
           </label>
 
           {parsedDefinition.error ? <p className="error-text">{parsedDefinition.error}</p> : null}
-          {message ? <p className="success-text">{message}</p> : null}
+          {message ? (
+            <p className={messageTone === "error" ? "error-text" : "success-text"}>{message}</p>
+          ) : null}
 
           <button
             className="primary-button"
@@ -494,6 +518,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
 
               setSaving(true);
               setMessage("");
+              setMessageTone("success");
 
               try {
                 const saved = editingSurveyId
@@ -511,11 +536,13 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                     });
 
                 window.localStorage.setItem(RECIPIENT_EMAIL_STORAGE_KEY, recipientEmail);
+                setMessageTone("success");
                 setMessage(
                   `${editingSurveyId ? "Aktualisiert" : "Gespeichert"}. Öffentlicher Link: ${window.location.origin}/f/${saved.slug}`
                 );
                 setSurveys(await api.listSurveys());
               } catch (caughtError) {
+                setMessageTone("error");
                 setMessage(
                   caughtError instanceof Error ? caughtError.message : "Speichern fehlgeschlagen."
                 );
@@ -589,6 +616,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                             try {
                               await deleteSurvey(survey);
                             } catch (caughtError) {
+                              setMessageTone("error");
                               setMessage(
                                 caughtError instanceof Error
                                   ? caughtError.message
@@ -623,8 +651,10 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                           const url = `${window.location.origin}/f/${survey.slug}`;
                           try {
                             await navigator.clipboard.writeText(url);
+                            setMessageTone("success");
                             setMessage(`Link kopiert: ${url}`);
                           } catch {
+                            setMessageTone("error");
                             setMessage("Link konnte nicht in die Zwischenablage kopiert werden.");
                           }
                         }}
@@ -726,6 +756,50 @@ function PublicDummy({ slug }: { slug: string }) {
   );
 }
 
+function SchemaPage() {
+  const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<NoticeTone>("success");
+
+  return (
+    <main className="shell">
+      <section className="panel stack">
+        <div className="panel-heading">
+          <div>
+            <span className="eyebrow">Schema</span>
+            <h1>Definition des JSON-Schemas für Fragebögen</h1>
+          </div>
+        </div>
+
+        <section className="schema-doc-box">
+          <button
+            className="icon-link schema-copy-button"
+            type="button"
+            title="Schema-Dokumentation kopieren"
+            aria-label="Schema-Dokumentation kopieren"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(schemaDocumentation);
+                setMessageTone("success");
+                setMessage("Schema-Dokumentation ins Clipboard kopiert.");
+              } catch {
+                setMessageTone("error");
+                setMessage("Schema-Dokumentation konnte nicht kopiert werden.");
+              }
+            }}
+          >
+            <CopyIcon />
+          </button>
+          <pre className="schema-doc-content">{schemaDocumentation}</pre>
+        </section>
+
+        {message ? (
+          <p className={messageTone === "error" ? "error-text" : "success-text"}>{message}</p>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
 export function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -742,6 +816,10 @@ export function App() {
 
   if (pathname.startsWith("/f/")) {
     return <PublicDummy slug={slug} />;
+  }
+
+  if (pathname === "/schema") {
+    return <SchemaPage />;
   }
 
   if (checking) {

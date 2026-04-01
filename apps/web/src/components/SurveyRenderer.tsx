@@ -1,4 +1,10 @@
-import type { SurveyAnswers, SurveyDefinition, SurveyQuestion } from "@fragebogen/shared";
+import {
+  type SurveyAnswers,
+  type SurveyContentBlock,
+  type SurveyDefinition,
+  type SurveyQuestion,
+  getSurveyQuestions
+} from "@fragebogen/shared";
 
 type SurveyRendererProps = {
   definition: SurveyDefinition;
@@ -115,6 +121,14 @@ function renderQuestionValue(
   }
 }
 
+function renderContentBlock(content: SurveyContentBlock) {
+  return (
+    <section className="content-card" key={content.id}>
+      <p>{content.textMd}</p>
+    </section>
+  );
+}
+
 export function SurveyRenderer({
   definition,
   answers,
@@ -131,25 +145,61 @@ export function SurveyRenderer({
         {showDescription && definition.descriptionMd ? <p>{definition.descriptionMd}</p> : null}
       </div>
 
-      <div className="question-list">
-        {definition.questions.map((question) => (
-          <section className="question-card" key={question.id}>
-            <div className="question-title-row">
-              <h3>
-                {question.label}
-                {question.required ? <span className="required-star"> *</span> : null}
-              </h3>
-            </div>
-            {question.helpTextMd ? <p className="muted">{question.helpTextMd}</p> : null}
-            {renderQuestionValue(
-              question,
-              answers[question.id] ?? (question.type === "multiChoice" ? [] : ""),
-              (value) => onChange?.(question.id, value),
-              readOnly
-            )}
-          </section>
-        ))}
-      </div>
+      {definition.sections && definition.sections.length > 0 ? (
+        <div className="section-list">
+          {definition.sections.map((section) => (
+            <section className="section-card" key={section.id}>
+              <div className="section-header">
+                <h3>{section.title}</h3>
+                {section.descriptionMd ? <p className="muted">{section.descriptionMd}</p> : null}
+              </div>
+              <div className="question-list">
+                {section.items.map((item) =>
+                  item.kind === "content" ? (
+                    renderContentBlock(item)
+                  ) : (
+                    <section className="question-card" key={item.id}>
+                      <div className="question-title-row">
+                        <h3>
+                          {item.label}
+                          {item.required ? <span className="required-star"> *</span> : null}
+                        </h3>
+                      </div>
+                      {item.helpTextMd ? <p className="muted">{item.helpTextMd}</p> : null}
+                      {renderQuestionValue(
+                        item,
+                        answers[item.id] ?? (item.type === "multiChoice" ? [] : ""),
+                        (value) => onChange?.(item.id, value),
+                        readOnly
+                      )}
+                    </section>
+                  )
+                )}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="question-list">
+          {getSurveyQuestions(definition).map((question) => (
+            <section className="question-card" key={question.id}>
+              <div className="question-title-row">
+                <h3>
+                  {question.label}
+                  {question.required ? <span className="required-star"> *</span> : null}
+                </h3>
+              </div>
+              {question.helpTextMd ? <p className="muted">{question.helpTextMd}</p> : null}
+              {renderQuestionValue(
+                question,
+                answers[question.id] ?? (question.type === "multiChoice" ? [] : ""),
+                (value) => onChange?.(question.id, value),
+                readOnly
+              )}
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

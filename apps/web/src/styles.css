@@ -87,6 +87,13 @@ textarea {
   font-weight: 600;
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .field-input {
   width: 100%;
   border: 1px solid rgba(29, 41, 57, 0.14);
@@ -159,7 +166,9 @@ textarea {
 }
 
 .new-button {
-  min-width: 110px;
+  min-width: 0;
+  padding: 10px 18px;
+  font-weight: 700;
 }
 
 .ghost-button {
@@ -239,6 +248,11 @@ textarea {
   gap: 16px;
 }
 
+.section-list {
+  display: grid;
+  gap: 18px;
+}
+
 .survey-header h2,
 .topbar h1,
 .panel h2,
@@ -254,6 +268,42 @@ textarea {
 
 .question-card {
   padding: 18px;
+}
+
+.question-card h3 {
+  margin: 0;
+}
+
+.question-title-row {
+  margin-bottom: 16px;
+}
+
+.section-card,
+.content-card {
+  border: 1px solid rgba(29, 41, 57, 0.08);
+  border-radius: 20px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.section-card {
+  padding: 18px;
+}
+
+.section-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.section-header h3,
+.section-header p,
+.content-card p {
+  margin: 0;
+}
+
+.content-card {
+  padding: 14px 16px;
+  color: #526071;
 }
 
 .choice-item {
@@ -387,6 +437,37 @@ textarea {
   background: #0f172a;
   color: #f8fafc;
   overflow: auto;
+}
+
+.schema-doc-box {
+  position: relative;
+  margin: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #0f172a;
+  color: #f8fafc;
+  overflow: auto;
+}
+
+.schema-doc-content {
+  margin: 0;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.schema-copy-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
+.schema-copy-button:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .summary-list {

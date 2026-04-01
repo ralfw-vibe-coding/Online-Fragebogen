@@ -18,6 +18,7 @@ export const surveyOptionSchema = z.object({
 });
 
 const baseQuestionSchema = z.object({
+  kind: z.literal("question").default("question"),
   id: z
     .string()
     .min(1, "Question id is required.")
@@ -76,15 +77,52 @@ export const surveyQuestionSchema = z.discriminatedUnion("type", [
   multiChoiceQuestionSchema
 ]);
 
-export const surveyDefinitionSchema = z.object({
+export const surveyContentBlockSchema = z.object({
+  kind: z.literal("content"),
+  id: z
+    .string()
+    .min(1, "Content id is required.")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/, "Use letters, numbers, _ and - for content ids."),
+  textMd: z.string().min(1, "Content text is required.")
+});
+
+export const surveySectionItemSchema = z.union([surveyQuestionSchema, surveyContentBlockSchema]);
+
+export const surveySectionSchema = z.object({
+  id: z
+    .string()
+    .min(1, "Section id is required.")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/, "Use letters, numbers, _ and - for section ids."),
+  title: z.string().min(1, "Section title is required."),
+  descriptionMd: z.string().optional(),
+  items: z.array(surveySectionItemSchema).min(1, "Each section needs at least one item.")
+});
+
+const surveyDefinitionBaseSchema = z.object({
   title: z.string().min(1, "Survey title is required."),
   descriptionMd: z.string().default(""),
   thankYouMd: z.string().default("Vielen Dank."),
-  questions: z.array(surveyQuestionSchema).min(1, "At least one question is required.")
-}).superRefine((definition, ctx) => {
-  const ids = new Set<string>();
+  questions: z.array(surveyQuestionSchema).optional(),
+  sections: z.array(surveySectionSchema).optional()
+});
 
-  for (const question of definition.questions) {
+export const surveyDefinitionSchema = surveyDefinitionBaseSchema.superRefine((definition, ctx) => {
+  const hasQuestions = Array.isArray(definition.questions) && definition.questions.length > 0;
+  const hasSections = Array.isArray(definition.sections) && definition.sections.length > 0;
+
+  if (!hasQuestions && !hasSections) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide either questions or sections with at least one item.",
+      path: ["questions"]
+    });
+    return;
+  }
+
+  const ids = new Set<string>();
+  const questions = getSurveyQuestions(definition as SurveyDefinition);
+
+  for (const question of questions) {
     if (ids.has(question.id)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -92,8 +130,21 @@ export const surveyDefinitionSchema = z.object({
         path: ["questions"]
       });
     }
-
     ids.add(question.id);
+  }
+
+  const contentIds = new Set<string>();
+  for (const item of getSurveySectionItems(definition as SurveyDefinition)) {
+    if (item.kind === "content") {
+      if (contentIds.has(item.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Content id "${item.id}" is duplicated.`,
+          path: ["sections"]
+        });
+      }
+      contentIds.add(item.id);
+    }
   }
 });
 
@@ -104,6 +155,9 @@ export const surveyAnswersSchema = z.record(
 
 export type SurveyOption = z.infer<typeof surveyOptionSchema>;
 export type SurveyQuestion = z.infer<typeof surveyQuestionSchema>;
+export type SurveyContentBlock = z.infer<typeof surveyContentBlockSchema>;
+export type SurveySectionItem = z.infer<typeof surveySectionItemSchema>;
+export type SurveySection = z.infer<typeof surveySectionSchema>;
 export type SurveyDefinition = z.infer<typeof surveyDefinitionSchema>;
 export type SurveyAnswers = z.infer<typeof surveyAnswersSchema>;
 
@@ -122,53 +176,102 @@ export const sampleSurveyDefinition: SurveyDefinition = {
     "Bitte beantworten Sie die Fragen kurz. Die Antworten werden direkt an die angegebene E-Mail-Adresse gesendet.",
   thankYouMd:
     "Vielen Dank. Unten sehen Sie Ihre Antworten noch einmal in strukturierter Form.",
-  questions: [
+  sections: [
     {
-      id: "name",
-      type: "text",
-      label: "Ihr Name",
-      required: true,
-      placeholder: "Max Mustermann"
-    },
-    {
-      id: "email",
-      type: "email",
-      label: "Ihre E-Mail-Adresse",
-      required: true,
-      placeholder: "max@example.com"
-    },
-    {
-      id: "satisfaction",
-      type: "singleChoice",
-      label: "Wie zufrieden sind Sie insgesamt?",
-      required: true,
-      options: [
-        { value: "very-happy", label: "Sehr zufrieden" },
-        { value: "happy", label: "Zufrieden" },
-        { value: "neutral", label: "Neutral" },
-        { value: "unhappy", label: "Unzufrieden" }
+      id: "contact",
+      title: "Kontaktdaten",
+      items: [
+        {
+          kind: "content",
+          id: "contact_intro",
+          textMd: "Bitte tragen Sie hier Ihre grundlegenden Kontaktdaten ein."
+        },
+        {
+          kind: "question",
+          id: "name",
+          type: "text",
+          label: "Ihr Name",
+          required: true,
+          placeholder: "Max Mustermann"
+        },
+        {
+          kind: "question",
+          id: "email",
+          type: "email",
+          label: "Ihre E-Mail-Adresse",
+          required: true,
+          placeholder: "max@example.com"
+        }
       ]
     },
     {
-      id: "topics",
-      type: "multiChoice",
-      label: "Welche Themen interessieren Sie besonders?",
-      required: false,
-      options: [
-        { value: "price", label: "Preis" },
-        { value: "quality", label: "Qualität" },
-        { value: "support", label: "Support" }
+      id: "feedback",
+      title: "Feedback",
+      descriptionMd: "Hier geht es um Ihre Bewertung und Ihre Interessen.",
+      items: [
+        {
+          kind: "question",
+          id: "satisfaction",
+          type: "singleChoice",
+          label: "Wie zufrieden sind Sie insgesamt?",
+          required: true,
+          options: [
+            { value: "very-happy", label: "Sehr zufrieden" },
+            { value: "happy", label: "Zufrieden" },
+            { value: "neutral", label: "Neutral" },
+            { value: "unhappy", label: "Unzufrieden" }
+          ]
+        },
+        {
+          kind: "content",
+          id: "topics_hint",
+          textMd: "Sie können bei der nächsten Frage mehrere Themen auswählen."
+        },
+        {
+          kind: "question",
+          id: "topics",
+          type: "multiChoice",
+          label: "Welche Themen interessieren Sie besonders?",
+          required: false,
+          options: [
+            { value: "price", label: "Preis" },
+            { value: "quality", label: "Qualität" },
+            { value: "support", label: "Support" }
+          ]
+        },
+        {
+          kind: "question",
+          id: "comment",
+          type: "textarea",
+          label: "Gibt es noch etwas, das wir wissen sollten?",
+          required: false,
+          rows: 5
+        }
       ]
-    },
-    {
-      id: "comment",
-      type: "textarea",
-      label: "Gibt es noch etwas, das wir wissen sollten?",
-      required: false,
-      rows: 5
     }
   ]
 };
+
+export function getSurveyQuestions(survey: SurveyDefinition): SurveyQuestion[] {
+  if (survey.sections && survey.sections.length > 0) {
+    return survey.sections.flatMap((section) =>
+      section.items.filter((item): item is SurveyQuestion => item.kind === "question")
+    );
+  }
+
+  return survey.questions ?? [];
+}
+
+export function getSurveySectionItems(survey: SurveyDefinition): SurveySectionItem[] {
+  if (survey.sections && survey.sections.length > 0) {
+    return survey.sections.flatMap((section) => section.items);
+  }
+
+  return (survey.questions ?? []).map((question) => ({
+    ...question,
+    kind: "question"
+  }));
+}
 
 export function buildSubmissionSummaryMarkdown(
   survey: SurveyDefinition,
@@ -176,7 +279,7 @@ export function buildSubmissionSummaryMarkdown(
 ): string {
   const lines = [`# ${survey.title}`, ""];
 
-  for (const question of survey.questions) {
+  for (const question of getSurveyQuestions(survey)) {
     const answer = answers[question.id];
     let printable: string;
 
@@ -200,7 +303,7 @@ export function validateSurveyAnswers(
   survey: SurveyDefinition,
   answers: SurveyAnswers
 ): { ok: true } | { ok: false; message: string } {
-  for (const question of survey.questions) {
+  for (const question of getSurveyQuestions(survey)) {
     const answer = answers[question.id];
     const empty =
       answer === undefined ||
@@ -230,7 +333,10 @@ export function validateSurveyAnswers(
 
       case "email":
         if (typeof answer !== "string" || !z.string().email().safeParse(answer).success) {
-          return { ok: false, message: `Bitte geben Sie eine gültige E-Mail für "${question.label}" an.` };
+          return {
+            ok: false,
+            message: `Bitte geben Sie eine gültige E-Mail für "${question.label}" an.`
+          };
         }
         break;
 
@@ -245,7 +351,10 @@ export function validateSurveyAnswers(
           typeof answer !== "string" ||
           !question.options.some((option) => option.value === answer)
         ) {
-          return { ok: false, message: `Bitte wählen Sie eine gültige Option für "${question.label}".` };
+          return {
+            ok: false,
+            message: `Bitte wählen Sie eine gültige Option für "${question.label}".`
+          };
         }
         break;
 
@@ -258,7 +367,10 @@ export function validateSurveyAnswers(
               question.options.some((option) => option.value === value)
           )
         ) {
-          return { ok: false, message: `Bitte wählen Sie gültige Optionen für "${question.label}".` };
+          return {
+            ok: false,
+            message: `Bitte wählen Sie gültige Optionen für "${question.label}".`
+          };
         }
         break;
     }
