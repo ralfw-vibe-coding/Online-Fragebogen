@@ -100,7 +100,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
               autoComplete="one-time-code"
               maxLength={6}
               onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="123456"
+              placeholder="######"
             />
           </div>
 
@@ -163,6 +163,21 @@ function EditIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="open-icon">
+      <path
+        d="M3 6h18M8 6V4h8v2m-7 4v7m6-7v7M6 6l1 14h10l1-14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function AdminApp({ onLogout }: { onLogout: () => void }) {
   const initialState = createInitialEditorState();
   const [title, setTitle] = useState(initialState.title);
@@ -171,6 +186,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
   const [definitionText, setDefinitionText] = useState(initialState.definitionText);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
+  const [pendingDeleteSurveyId, setPendingDeleteSurveyId] = useState<string | null>(null);
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -221,6 +237,33 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     }
   }, [title, slugEditedManually]);
 
+  useEffect(() => {
+    if (!pendingDeleteSurveyId) {
+      return;
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        setPendingDeleteSurveyId(null);
+        return;
+      }
+
+      const deleteControl = target.closest("[data-delete-control-id]");
+      if (
+        deleteControl &&
+        deleteControl.getAttribute("data-delete-control-id") === pendingDeleteSurveyId
+      ) {
+        return;
+      }
+
+      setPendingDeleteSurveyId(null);
+    }
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, [pendingDeleteSurveyId]);
+
   function resetEditor() {
     const nextState = createInitialEditorState();
     setTitle(nextState.title);
@@ -242,6 +285,19 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setMessage(`Bearbeitung geladen: ${survey.title}`);
   }
 
+  async function deleteSurvey(survey: SurveyListItem) {
+    await api.deleteSurvey(survey.id);
+    const refreshedSurveys = await api.listSurveys();
+    setSurveys(refreshedSurveys);
+    setPendingDeleteSurveyId(null);
+
+    if (editingSurveyId === survey.id) {
+      resetEditor();
+    }
+
+    setMessage(`Gelöscht: ${survey.title}`);
+  }
+
   const allFieldsFilled =
     title.trim() !== "" &&
     slug.trim() !== "" &&
@@ -260,8 +316,11 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
         <button
           className="ghost-button"
           onClick={async () => {
-            await api.logout();
-            onLogout();
+            try {
+              await api.logout();
+            } finally {
+              onLogout();
+            }
           }}
         >
           Logout
@@ -399,10 +458,10 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
               {surveys.map((survey) => (
                 <article className="list-item" key={survey.id}>
                   <div>
-                    <h3>{survey.title}</h3>
-                    <div className="link-row">
+                    <div className="title-row">
+                      <h3>{survey.title}</h3>
                       <button
-                        className="icon-link"
+                        className="title-edit-button"
                         type="button"
                         title="Fragebogen bearbeiten"
                         aria-label={`Fragebogen ${survey.title} bearbeiten`}
@@ -410,6 +469,43 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                       >
                         <EditIcon />
                       </button>
+                      <button
+                        className={`title-delete-button${pendingDeleteSurveyId === survey.id ? " danger-confirm" : ""}`}
+                        type="button"
+                        title={
+                          pendingDeleteSurveyId === survey.id
+                            ? "Nochmal klicken, um Fragebogen und Antworten zu löschen"
+                            : "Fragebogen löschen"
+                        }
+                        aria-label={
+                          pendingDeleteSurveyId === survey.id
+                            ? `Nochmal klicken, um ${survey.title} zu löschen`
+                            : `Fragebogen ${survey.title} löschen`
+                        }
+                        data-delete-control-id={survey.id}
+                        onClick={async (event) => {
+                          event.stopPropagation();
+
+                          if (pendingDeleteSurveyId === survey.id) {
+                            try {
+                              await deleteSurvey(survey);
+                            } catch (caughtError) {
+                              setMessage(
+                                caughtError instanceof Error
+                                  ? caughtError.message
+                                  : "Löschen fehlgeschlagen."
+                              );
+                            }
+                            return;
+                          }
+
+                          setPendingDeleteSurveyId(survey.id);
+                        }}
+                      >
+                        {pendingDeleteSurveyId === survey.id ? "?" : <TrashIcon />}
+                      </button>
+                    </div>
+                    <div className="link-row">
                       <a
                         className="survey-link"
                         href={`${window.location.origin}/f/${survey.slug}`}

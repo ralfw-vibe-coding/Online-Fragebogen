@@ -100,10 +100,14 @@ textarea {
 .pin-input {
   width: 172px;
   text-align: center;
-  font-size: 2rem;
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.35em;
   padding: 14px 18px;
+}
+
+.pin-input::placeholder {
+  color: #98a2b3;
 }
 
 .pin-row {
@@ -115,7 +119,7 @@ textarea {
 
 .pin-inline-label {
   display: block;
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
@@ -253,6 +257,53 @@ textarea {
   align-items: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.title-edit-button:hover {
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.title-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(217, 45, 32, 0.12);
+  color: #b42318;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.title-delete-button:hover {
+  background: rgba(217, 45, 32, 0.18);
+}
+
+.danger-confirm {
+  background: rgba(217, 45, 32, 0.2);
 }
 
 .survey-list-spaced {

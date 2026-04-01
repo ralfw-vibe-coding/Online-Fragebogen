@@ -108,4 +108,19 @@ export async function registerAdminRoutes(app: FastifyInstance) {
 
     return survey;
   });
+
+  app.delete("/api/admin/surveys/:id", async (request, reply) => {
+    if (!isAdmin(request)) {
+      return reply.code(401).send({ message: "Nicht autorisiert." });
+    }
+
+    const params = z.object({ id: z.string().uuid() }).parse(request.params);
+    const deleted = await surveyRepository.deleteById(params.id);
+
+    if (!deleted) {
+      return reply.code(404).send({ message: "Fragebogen nicht gefunden." });
+    }
+
+    return { ok: true };
+  });
 }

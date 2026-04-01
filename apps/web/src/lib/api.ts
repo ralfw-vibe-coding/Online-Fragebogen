@@ -4,13 +4,14 @@ const API_URL = "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+  const hasBody = init?.body !== undefined;
 
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       credentials: "include",
       headers: {
-        "content-type": "application/json",
+        ...(hasBody ? { "content-type": "application/json" } : {}),
         ...(init?.headers ?? {})
       }
     });
@@ -70,6 +71,12 @@ export const api = {
     return request(`/api/admin/surveys/${id}`, {
       method: "PUT",
       body: JSON.stringify(input)
+    });
+  },
+
+  deleteSurvey(id: string): Promise<{ ok: boolean }> {
+    return request(`/api/admin/surveys/${id}`, {
+      method: "DELETE"
     });
   },
 

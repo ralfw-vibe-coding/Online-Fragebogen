@@ -157,6 +157,16 @@ export const surveyRepository = {
     return row ? toSurveyRecord(row) : undefined;
   },
 
+  async deleteById(id: string): Promise<boolean> {
+    const rows = await sql<{ id: string }[]>`
+      delete from surveys
+      where id = ${id}
+      returning id
+    `;
+
+    return rows.length > 0;
+  },
+
   async submit(slug: string, answers: SurveyAnswers) {
     const survey = await this.getBySlug(slug);
     if (!survey) {
