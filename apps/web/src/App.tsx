@@ -148,6 +148,43 @@ function OpenIcon() {
   );
 }
 
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="open-icon">
+      <rect
+        x="9"
+        y="7"
+        width="10"
+        height="12"
+        rx="2"
+        ry="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <rect
+        x="5"
+        y="3"
+        width="10"
+        height="12"
+        rx="2"
+        ry="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M9 7h4M9 11h4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function EditIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="open-icon">
@@ -515,6 +552,23 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
                       >
                         {`${window.location.origin}/f/${survey.slug}`}
                       </a>
+                      <button
+                        className="icon-link"
+                        type="button"
+                        title="Link kopieren"
+                        aria-label={`Link für ${survey.title} kopieren`}
+                        onClick={async () => {
+                          const url = `${window.location.origin}/f/${survey.slug}`;
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            setMessage(`Link kopiert: ${url}`);
+                          } catch {
+                            setMessage("Link konnte nicht in die Zwischenablage kopiert werden.");
+                          }
+                        }}
+                      >
+                        <CopyIcon />
+                      </button>
                       <a
                         className="icon-link"
                         href={`${window.location.origin}/f/${survey.slug}`}
