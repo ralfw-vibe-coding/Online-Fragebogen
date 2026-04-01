@@ -19,6 +19,7 @@ type SurveyListItem = {
 };
 
 const RECIPIENT_EMAIL_STORAGE_KEY = "fragebogen.recipientEmail";
+type EditorTab = "json" | "prompt";
 
 function createInitialEditorState() {
   return {
@@ -224,6 +225,9 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
   const [pendingDeleteSurveyId, setPendingDeleteSurveyId] = useState<string | null>(null);
+  const [editorTab, setEditorTab] = useState<EditorTab>("json");
+  const [promptText, setPromptText] = useState("");
+  const [generating, setGenerating] = useState(false);
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -309,6 +313,8 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setDefinitionText(nextState.definitionText);
     setSlugEditedManually(false);
     setEditingSurveyId(null);
+    setEditorTab("json");
+    setPromptText("");
     setMessage("");
   }
 
@@ -319,6 +325,8 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setRecipientEmail(survey.recipientEmail);
     setDefinitionText(JSON.stringify(survey.definition, null, 2));
     setSlugEditedManually(survey.slug !== slugifyTitle(survey.title));
+    setEditorTab("json");
+    setPromptText("");
     setMessage(`Bearbeitung geladen: ${survey.title}`);
   }
 
@@ -411,12 +419,66 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
 
           <label className="field-label">
             Fragebogen-Definition
-            <textarea
-              className="field-input code-editor"
-              required
-              value={definitionText}
-              onChange={(e) => setDefinitionText(e.target.value)}
-            />
+            <div className="tab-chip-row">
+              <button
+                type="button"
+                className={`tab-chip${editorTab === "json" ? " active" : ""}`}
+                onClick={() => setEditorTab("json")}
+              >
+                JSON
+              </button>
+              <button
+                type="button"
+                className={`tab-chip${editorTab === "prompt" ? " active" : ""}`}
+                onClick={() => setEditorTab("prompt")}
+              >
+                Prompt
+              </button>
+            </div>
+            {editorTab === "json" ? (
+              <textarea
+                className="field-input code-editor"
+                required
+                value={definitionText}
+                onChange={(e) => setDefinitionText(e.target.value)}
+              />
+            ) : (
+              <div className="stack">
+                <textarea
+                  className="field-input prompt-editor"
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  placeholder="Beschreiben Sie das gewünschte Formular in natürlicher Sprache."
+                />
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={promptText.trim() === "" || generating}
+                  onClick={async () => {
+                    setGenerating(true);
+                    setMessage("");
+
+                    try {
+                      const result = await api.generateSurveyDefinition(promptText);
+                      setDefinitionText(JSON.stringify(result.definition, null, 2));
+                      setTitle(result.definition.title);
+                      setEditorTab("json");
+                      setMessage("Formulardefinition aus Prompt erzeugt.");
+                    } catch (caughtError) {
+                      setMessage(
+                        caughtError instanceof Error
+                          ? caughtError.message
+                          : "Prompt konnte nicht verarbeitet werden."
+                      );
+                    } finally {
+                      setGenerating(false);
+                    }
+                  }}
+                >
+                  {generating ? "Erzeuge..." : "Prompt ausführen"}
+                </button>
+              </div>
+            )}
           </label>
 
           {parsedDefinition.error ? <p className="error-text">{parsedDefinition.error}</p> : null}

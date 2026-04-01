@@ -14,7 +14,9 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_URL: z.string().min(1),
   RESEND_API_KEY: z.string().min(1),
-  MAIL_FROM: z.string().email()
+  MAIL_FROM: z.string().email(),
+  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_MODEL: z.string().min(1).default("gpt-5-mini")
 });
 
 export const env = envSchema.parse(process.env);

@@ -80,6 +80,13 @@ export const api = {
     });
   },
 
+  generateSurveyDefinition(prompt: string): Promise<{ definition: SurveyDefinition }> {
+    return request("/api/admin/generate-definition", {
+      method: "POST",
+      body: JSON.stringify({ prompt })
+    });
+  },
+
   getPublicSurvey(slug: string): Promise<SurveyRecord> {
     return request(`/api/public/${slug}`, { method: "GET" });
   },

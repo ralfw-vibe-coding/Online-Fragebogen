@@ -2,6 +2,7 @@ import { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { surveyDefinitionSchema } from "@fragebogen/shared";
 import { env } from "../config";
+import { generateSurveyDefinitionFromPrompt } from "../openai";
 import { surveyRepository } from "../repository";
 
 const loginSchema = z.object({
@@ -20,6 +21,10 @@ const createSurveySchema = z.object({
 
 const updateSurveySchema = createSurveySchema.extend({
   id: z.string().uuid()
+});
+
+const generateFromPromptSchema = z.object({
+  prompt: z.string().min(1, "Prompt darf nicht leer sein.")
 });
 
 function isAdmin(request: { cookies: Record<string, string | undefined> }) {
@@ -64,6 +69,24 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     }
 
     return surveyRepository.list();
+  });
+
+  app.post("/api/admin/generate-definition", async (request, reply) => {
+    if (!isAdmin(request)) {
+      return reply.code(401).send({ message: "Nicht autorisiert." });
+    }
+
+    const body = generateFromPromptSchema.parse(request.body);
+
+    try {
+      const definition = await generateSurveyDefinitionFromPrompt(body.prompt);
+      return { definition };
+    } catch (error) {
+      return reply.code(400).send({
+        message:
+          error instanceof Error ? error.message : "Formulardefinition konnte nicht erzeugt werden."
+      });
+    }
   });
 
   app.post("/api/admin/surveys", async (request, reply) => {

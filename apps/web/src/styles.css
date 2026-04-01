@@ -137,6 +137,11 @@ textarea {
   line-height: 1.55;
 }
 
+.prompt-editor {
+  min-height: 220px;
+  resize: vertical;
+}
+
 .primary-button,
 .ghost-button {
   border: 0;
@@ -179,6 +184,25 @@ textarea {
   letter-spacing: 0.08em;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.tab-chip-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #526071;
+  cursor: pointer;
+}
+
+.tab-chip.active {
+  background: #0f172a;
+  color: white;
 }
 
 .muted {
